@@ -1,0 +1,13 @@
+[package]
+name = "bye_nanoflann_rs"
+version = "0.1.0"
+edition = "2021"
+license = "BSD"
+authors = ["qsbye"]
+
+[lib]
+name = "bye_nanoflann_rs"
+path = "src/lib.rs" 
+
+[dependencies]
+rand = "0.8.5"
