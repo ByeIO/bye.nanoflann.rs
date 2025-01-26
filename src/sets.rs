@@ -8,67 +8,221 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use rand::Rng;
+use std::ops::Add;
+use std::vec::Vec;
+use std::any::Any;
 
-use crate::utils::HasPointData;
+use crate::utils::{
+    HasPointData, IndexDistSorter, HasDistance, MaxValue
+};
 
-pub trait MaxValue {
-    fn max_value() -> Self;
+/* start 简单集合 */
+
+/// 1. 超集, 数据 + 距离
+#[derive(Debug, Clone, PartialEq)]
+pub struct SuperSet<ElementTypeAny = f32, DistanceTypeAny = f32> {
+    // N * N 维向量
+    data_vec: Vec<Vec<ElementTypeAny>>,
+    // N 维向量
+    distance_vec: Vec<DistanceTypeAny>,
 }
 
-impl MaxValue for f32 {
-    fn max_value() -> Self {
-        f32::MAX
+/// 实现SuperSet的构造方法
+impl<ElementTypeAny, DistanceTypeAny> SuperSet<ElementTypeAny, DistanceTypeAny>
+where
+    ElementTypeAny: PartialOrd + Clone,
+    DistanceTypeAny: Sized + Copy,
+{
+    /// 创建一个新的超集
+    pub fn new(
+        data_vec: Vec<Vec<ElementTypeAny>>, 
+        distance_vec: Vec<DistanceTypeAny>
+        ) -> Self {
+        SuperSet { 
+            data_vec, distance_vec
+        }
+    }// end fn new
+
+}
+
+/// 为 SuperSet 实现 HasPointData 特性
+/// Box<dyn std::any::Any>确保编译时Sized是已知的
+impl<ElementTypeAny> HasPointData for SuperSet<ElementTypeAny, f32>
+where
+    ElementTypeAny: PartialOrd + Clone,
+{
+    type ElementTypeAny = ElementTypeAny; // 与输入类型一致
+    type IndexTypeAny = usize; // 固定为usize类型
+    
+    /// 获取指定索引处的点的指定维度的值
+    fn get_point_dim(&self, idx: Self::IndexTypeAny, dim: usize)
+    -> Self::ElementTypeAny {
+        self.data_vec[idx][dim].clone()
     }
+
+    /// 获取指定索引处的点的所有维度的值
+    fn get_point(&self, idx: Self::IndexTypeAny) -> Vec<Self::ElementTypeAny> {
+        self.data_vec[idx].clone()
+    }
+
+    /// 获取指定索引处的点的所有维度的值vec 
+    fn get_point_vec(&self) -> Vec<Vec<Self::ElementTypeAny>> {
+        self.data_vec.clone()
+    }
+
 }
 
-impl MaxValue for f64 {
-    fn max_value() -> Self {
-        f64::MAX
+/// 为 SuperSet 实现 HasDistance 特性
+impl<ElementTypeAny, DistanceTypeAny> HasDistance for SuperSet<ElementTypeAny, DistanceTypeAny>
+where
+    DistanceTypeAny: PartialOrd + Clone + Add,
+    ElementTypeAny: Copy,
+{
+    type DistanceTypeAny = DistanceTypeAny;
+    type IndexTypeAny = usize; // 默认为usize
+
+    /// 返回结果项的距离
+    fn distance(&self, idx: Self::IndexTypeAny) -> Self::DistanceTypeAny {
+        self.distance_vec[idx].clone()
     }
+
+    /// 返回结果项的距离vec
+    fn distance_vec(&self) -> Vec<Self::DistanceTypeAny> {
+        self.distance_vec.clone()
+    }
+
 }
+
+/// 2. 数据集, 用于存储原始数据
+#[derive(Debug, Clone, PartialEq)]
+pub struct DataSet<ElementTypeAny = f64> {
+    // N * N 维向量
+    data_vec: Vec<Vec<ElementTypeAny>>,
+}
+
+/// 为 DataSet 实现 HasPointData 特性
+impl<ElementTypeAny> HasPointData for DataSet<ElementTypeAny>
+where
+    ElementTypeAny: PartialOrd + Clone,
+{
+    type ElementTypeAny = ElementTypeAny; // 与输入类型一致
+    type IndexTypeAny = usize; // 默认为usize
+    
+    /// 获取指定索引处的点的指定维度的值
+    fn get_point_dim(&self, idx: Self::IndexTypeAny, dim: usize)
+    -> Self::ElementTypeAny {
+        self.data_vec[idx][dim].clone()
+    }
+
+    /// 获取指定索引处的点的所有维度的值
+    fn get_point(&self, idx: Self::IndexTypeAny) -> Vec<Self::ElementTypeAny> {
+        self.data_vec[idx].clone()
+    }
+
+    /// 获取指定索引处的点的所有维度的值vec
+    fn get_point_vec(&self) -> Vec<Vec<Self::ElementTypeAny>> {
+        self.data_vec.clone()
+    }
+
+}
+
+/// 3. 结果集，用于存储索引和距离
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResultSet<IndexTypeAny = usize, DistanceTypeAny = f64> {
+    index: IndexTypeAny,
+    distance: DistanceTypeAny,
+}
+
+impl<IndexTypeAny, DistanceTypeAny> ResultSet<IndexTypeAny, DistanceTypeAny>
+where
+    DistanceTypeAny: Copy,
+    IndexTypeAny: Copy + TryInto<usize>, // 假设索引类型是可复制的,
+{
+    /// 创建一个新的结果集
+    pub fn new(index: IndexTypeAny, distance: DistanceTypeAny) -> Self {
+
+        ResultSet { 
+            index, distance
+        }
+
+    }
+
+    /// 返回结果集中该点的距离
+    pub fn distance(&self) -> DistanceTypeAny {
+        self.distance
+    }
+
+    /// 返回结果项的该点索引
+    pub fn index(&self) -> IndexTypeAny {
+        self.index
+    }
+
+}
+
+/// 为 ResultSet 实现 HasDistance 特性
+impl<IndexTypeAny, DistanceTypeAny> HasDistance for ResultSet<IndexTypeAny, DistanceTypeAny>
+where
+    DistanceTypeAny: PartialOrd + Clone + Add,
+    IndexTypeAny: Copy + TryInto<usize>, // 假设索引类型是可复制的
+{
+    type DistanceTypeAny = DistanceTypeAny; // 假设点的数据类型是 f64
+    type IndexTypeAny = usize;
+    
+    /// 返回结果项的距离
+    fn distance(&self, _:usize) -> DistanceTypeAny {
+        self.distance.clone()
+    }
+
+    /// 返回结果项的距离vec(为了凑trait, 实际用不到)
+    fn distance_vec(&self) -> Vec<Self::DistanceTypeAny> {
+        unimplemented!()
+    }
+
+}
+/* end 简单集合 */
 
 /// KNN结果集，用于存储K近邻搜索的结果
-pub struct KNNResultSet<DistanceTypeAny, IndexTypeAny = usize, CountTypeAny = usize> {
-    indices: Vec<IndexTypeAny>,
+pub struct KNNResultSet<DistanceTypeAny> {
+    indices: Vec<usize>,
     dists: Vec<DistanceTypeAny>,
-    capacity: CountTypeAny,
-    count: CountTypeAny,
+    // 只能使用usize作为索引
+    capacity: usize,
+    // 只能使用usize作为索引
+    count: usize,
 }
 
-impl<DistanceTypeAny, IndexTypeAny, CountTypeAny> KNNResultSet<DistanceTypeAny, IndexTypeAny, CountTypeAny>
+impl<DistanceTypeAny> KNNResultSet<DistanceTypeAny>
 where
     DistanceTypeAny: PartialOrd + Copy + MaxValue,
-    IndexTypeAny: Copy,
-    CountTypeAny: PartialOrd + Copy + From<usize> + Into<usize>,
 {
     /// 创建一个新的KNN结果集
-    pub fn new(capacity: CountTypeAny) -> Self {
+    pub fn new(capacity: usize) -> Self {
         KNNResultSet {
             indices: Vec::with_capacity(capacity.into()),
             dists: Vec::with_capacity(capacity.into()),
             capacity,
-            count: CountTypeAny::from(0),
+            count: 0,
         }
     }
 
     /// 初始化结果集
-    pub fn init(&mut self, indices: Vec<IndexTypeAny>, dists: Vec<DistanceTypeAny>) {
+    pub fn init(&mut self, indices: Vec<usize>, dists: Vec<DistanceTypeAny>) {
         self.indices = indices;
         self.dists = dists;
-        self.count = CountTypeAny::from(0);
-        if self.capacity > CountTypeAny::from(0) {
-            self.dists[self.capacity.into() - 1] = DistanceTypeAny::max_value();
+        self.count = 0;
+        if self.capacity > 0 {
+            self.dists[self.capacity - 1] = DistanceTypeAny::max_value();
         }
     }
 
     /// 返回结果集中的元素数量
-    pub fn size(&self) -> CountTypeAny {
+    pub fn size(&self) -> usize {
         self.count
     }
 
     /// 判断结果集是否为空
     pub fn empty(&self) -> bool {
-        self.count == CountTypeAny::from(0)
+        self.count == 0
     }
 
     /// 判断结果集是否已满
@@ -77,7 +231,7 @@ where
     }
 
     /// 添加一个点到结果集中
-    pub fn add_point(&mut self, dist: DistanceTypeAny, index: IndexTypeAny) -> bool {
+    pub fn add_point(&mut self, dist: DistanceTypeAny, index: usize) -> bool {
         let mut i: usize = self.count.into();
         while i > 0 {
             if self.dists[i - 1] > dist {
@@ -95,14 +249,14 @@ where
             self.indices[i] = index;
         }
         if self.count < self.capacity {
-            self.count = CountTypeAny::from(self.count.into() + 1);
+            self.count = self.count + 1;
         }
         true
     }
 
     /// 返回结果集中最差的距离
     pub fn worst_dist(&self) -> DistanceTypeAny {
-        self.dists[self.capacity.into() - 1]
+        self.dists[self.capacity - 1]
     }
 
     /// 对结果集进行排序（已排序）
@@ -112,49 +266,49 @@ where
 }
 
 /// RKNN结果集，用于存储带最大半径的K近邻搜索的结果
-pub struct RKNNResultSet<DistanceTypeAny, IndexTypeAny = usize, CountTypeAny = usize> {
-    indices: Vec<IndexTypeAny>,
+pub struct RKNNResultSet<DistanceTypeAny> {
+    indices: Vec<usize>,
     dists: Vec<DistanceTypeAny>,
-    capacity: CountTypeAny,
-    count: CountTypeAny,
+    // 只能使用usize作为索引
+    capacity: usize,
+    // 只能使用usize作为索引
+    count: usize,
     maximum_search_distance_squared: DistanceTypeAny,
 }
 
-impl<DistanceTypeAny, IndexTypeAny, CountTypeAny> RKNNResultSet<DistanceTypeAny, IndexTypeAny, CountTypeAny>
+impl<DistanceTypeAny> RKNNResultSet<DistanceTypeAny>
 where
     DistanceTypeAny: PartialOrd + Copy + MaxValue,
-    IndexTypeAny: Copy,
-    CountTypeAny: PartialOrd + Copy + From<usize> + Into<usize>,
 {
     /// 创建一个新的RKNN结果集
-    pub fn new(capacity: CountTypeAny, maximum_search_distance_squared: DistanceTypeAny) -> Self {
+    pub fn new(capacity: usize, maximum_search_distance_squared: DistanceTypeAny) -> Self {
         RKNNResultSet {
             indices: Vec::with_capacity(capacity.into()),
             dists: Vec::with_capacity(capacity.into()),
             capacity,
-            count: CountTypeAny::from(0),
+            count: 0,
             maximum_search_distance_squared,
         }
     }
 
     /// 初始化结果集
-    pub fn init(&mut self, indices: Vec<IndexTypeAny>, dists: Vec<DistanceTypeAny>) {
+    pub fn init(&mut self, indices: Vec<usize>, dists: Vec<DistanceTypeAny>) {
         self.indices = indices;
         self.dists = dists;
-        self.count = CountTypeAny::from(0);
-        if self.capacity > CountTypeAny::from(0) {
-            self.dists[self.capacity.into() - 1] = self.maximum_search_distance_squared;
+        self.count = 0;
+        if self.capacity > 0 {
+            self.dists[self.capacity - 1] = self.maximum_search_distance_squared;
         }
     }
 
     /// 返回结果集中的元素数量
-    pub fn size(&self) -> CountTypeAny {
+    pub fn size(&self) -> usize {
         self.count
     }
 
     /// 判断结果集是否为空
     pub fn empty(&self) -> bool {
-        self.count == CountTypeAny::from(0)
+        self.count == 0
     }
 
     /// 判断结果集是否已满
@@ -163,11 +317,11 @@ where
     }
 
     /// 添加一个点到结果集中
-    pub fn add_point(&mut self, dist: DistanceTypeAny, index: IndexTypeAny) -> bool {
-        let mut i: usize = self.count.into();
+    pub fn add_point(&mut self, dist: DistanceTypeAny, index: usize) -> bool {
+        let mut i: usize = self.count;
         while i > 0 {
             if self.dists[i - 1] > dist {
-                if i < self.capacity.into() {
+                if i < self.capacity {
                     self.dists[i] = self.dists[i - 1];
                     self.indices[i] = self.indices[i - 1];
                 }
@@ -176,19 +330,19 @@ where
             }
             i -= 1;
         }
-        if i < self.capacity.into() {
+        if i < self.capacity {
             self.dists[i] = dist;
             self.indices[i] = index;
         }
         if self.count < self.capacity {
-            self.count = CountTypeAny::from(self.count.into() + 1);
+            self.count = self.count + 1;
         }
         true
     }
 
     /// 返回结果集中最差的距离
     pub fn worst_dist(&self) -> DistanceTypeAny {
-        self.dists[self.capacity.into() - 1]
+        self.dists[self.capacity - 1]
     }
 
     /// 对结果集进行排序（已排序）
@@ -198,18 +352,17 @@ where
 }
 
 /// 半径结果集，用于存储基于半径的搜索结果
-pub struct RadiusResultSet<DistanceTypeAny, IndexTypeAny = usize> {
+pub struct RadiusResultSet<DistanceTypeAny> {
     radius: DistanceTypeAny,
-    indices_dists: Vec<ResultItem<IndexTypeAny, DistanceTypeAny>>,
+    indices_dists: Vec<ResultSet<usize, DistanceTypeAny>>,
 }
 
-impl<DistanceTypeAny, IndexTypeAny> RadiusResultSet<DistanceTypeAny, IndexTypeAny>
+impl<DistanceTypeAny> RadiusResultSet<DistanceTypeAny>
 where
     DistanceTypeAny: PartialOrd + Copy,
-    IndexTypeAny: Copy,
 {
     /// 创建一个新的半径结果集
-    pub fn new(radius: DistanceTypeAny, indices_dists: Vec<ResultItem<IndexTypeAny, DistanceTypeAny>>) -> Self {
+    pub fn new(radius: DistanceTypeAny, indices_dists: Vec<ResultSet<usize, DistanceTypeAny>>) -> Self {
         RadiusResultSet {
             radius,
             indices_dists,
@@ -242,9 +395,9 @@ where
     }
 
     /// 添加一个点到结果集中
-    pub fn add_point(&mut self, dist: DistanceTypeAny, index: IndexTypeAny) -> bool {
+    pub fn add_point(&mut self, dist: DistanceTypeAny, index: usize) -> bool {
         if dist < self.radius {
-            self.indices_dists.push(ResultItem::new(index, dist));
+            self.indices_dists.push(ResultSet::new(index, dist));
         }
         true
     }
@@ -255,7 +408,7 @@ where
     }
 
     /// 返回结果集中最差的项
-    pub fn worst_item(&self) -> ResultItem<IndexTypeAny, DistanceTypeAny> {
+    pub fn worst_item(&self) -> ResultSet<usize, DistanceTypeAny> {
         if self.indices_dists.is_empty() {
             panic!("Cannot invoke RadiusResultSet::worst_item() on an empty list of results.");
         }
@@ -265,55 +418,6 @@ where
     /// 对结果集进行排序
     pub fn sort(&mut self) {
         self.indices_dists.sort_by(|a, b| a.distance().partial_cmp(&b.distance()).unwrap());
-    }
-}
-
-/// 结果项，用于存储索引和距离
-#[derive(Debug, Clone, PartialEq)]
-pub struct ResultItem<IndexTypeAny = usize, DistanceTypeAny = f64> {
-    index: IndexTypeAny,
-    distance: DistanceTypeAny,
-}
-
-impl<IndexTypeAny, DistanceTypeAny> ResultItem<IndexTypeAny, DistanceTypeAny>
-where
-    DistanceTypeAny: Copy,
-    IndexTypeAny: Copy,
-{
-    /// 创建一个新的结果项
-    pub fn new(index: IndexTypeAny, distance: DistanceTypeAny) -> Self {
-        ResultItem { index, distance }
-    }
-
-    /// 返回结果项的距离
-    pub fn distance(&self) -> DistanceTypeAny {
-        self.distance
-    }
-
-    /// 返回结果项的索引
-    pub fn index(&self) -> IndexTypeAny {
-        self.index
-    }
-}
-
-/// 为 ResultItem 实现 HasPointData 特性
-impl<IndexTypeAny, DistanceTypeAny> HasPointData for ResultItem<IndexTypeAny, DistanceTypeAny>
-where
-    DistanceTypeAny: PartialOrd + Clone,
-    IndexTypeAny: Copy, // 假设索引类型是可复制的
-{
-    type Item = f64; // 假设点的数据类型是 f64
-    type IndexTypeAny = IndexTypeAny;
-    type DistanceTypeAny = DistanceTypeAny;
-
-    /// 获取距离
-    fn distance(&self) -> Self::DistanceTypeAny {
-        self.distance().clone()
-    }
-
-    /// 获取指定索引处的点的指定维度的值
-    fn kdtree_get_pt(&self, idx: Self::IndexTypeAny, dim: usize) -> Self::Item {
-        unimplemented!()
     }
 }
 
@@ -363,18 +467,20 @@ mod tests3 {
 
     #[test]
     fn test_result_item() {
-        let item = ResultItem::new(1, 2.5);
-        assert_eq!(item.index(), 1, "ResultItem index is incorrect");
-        assert_eq!(item.distance(), 2.5, "ResultItem distance is incorrect");
+        let item = ResultSet::new(1, 2.5);
+        assert_eq!(item.index(), 1, "ResultSet index is incorrect");
+        assert_eq!(item.distance(), 2.5, "ResultSet distance is incorrect");
     }
 
     #[test]
     fn test_index_dist_sorter() {
-        let item1 = ResultItem::new(1, 2.5);
-        let item2 = ResultItem::new(2, 1.5);
+        let item1 = ResultSet::new(1, 2.5);
+        let item2 = ResultSet::new(2, 1.5);
+        // item2 的距离大于 item1 的距离
         assert!(IndexDistSorter::compare(&item2, &item1), "IndexDistSorter comparison failed");
 
-        let item3 = ResultItem::new(3, 3.0);
-        assert!(IndexDistSorter::compare(&item3, &item1), "IndexDistSorter comparison failed");
+        let item3 = ResultSet::new(3, 3.0);
+        // item3 的距离小于 item1 的距离
+        assert!(!IndexDistSorter::compare(&item3, &item1), "IndexDistSorter comparison failed");
     }
 }

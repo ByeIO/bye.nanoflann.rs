@@ -4,6 +4,8 @@
 #![allow(unused_mut)]
 #![allow(unused_variables)]
 
+//! KD树的基本特性
+
 use std::io::{self, Read, Write};
 use std::sync::{Arc, Mutex};
 use std::future::Future;
@@ -15,9 +17,10 @@ use rand::distributions::{Distribution, Uniform};
 use crate::file::{save_value, load_value};
 use crate::memalloc::PooledAllocator;
 use crate::params::{KDTreeSingleIndexAdaptorParams, SearchParameters};
-use crate::sets::{KNNResultSet, RKNNResultSet, RadiusResultSet, ResultItem};
+use crate::sets::{KNNResultSet, RKNNResultSet, RadiusResultSet, ResultSet};
 
 /* start 树叶 */
+
 /// 节点类型
 pub enum NodeType {
     Leaf { left: usize, right: usize },
@@ -92,15 +95,48 @@ impl<const DIM: usize, T> ArrayOrVector<DIM, T> {
 
 /* start KDTreeBase公共特性 */
 
+// TODO: 实现多线程
 pub trait KDTreeBase {
     type ElementType;
     type DistanceType;
     type IndexType;
+    // 初始化KD树
+    fn init(&mut self, dimensionality: usize, leaf_max_size: usize);
 
+    // 建立索引
     fn build_index(&mut self);
+
+    // 更新索引, 确保辅助索引列表的大小与当前数据集一致，并在大小发生变化时重新生成。
+    fn update_index(&mut self);
+
+    // 获取数据点数量
+    fn get_point_count(&self) -> usize;
+
+    // 最近邻搜索
     fn find_neighbors(&self, query_point: &[Self::ElementType], num_closest: usize) -> Vec<(Self::IndexType, Self::DistanceType)>;
+
+    // 半径搜索
     fn radius_search(&self, query_point: &[Self::ElementType], radius: Self::DistanceType) -> Vec<(Self::IndexType, Self::DistanceType)>;
+
+    // K近邻搜索
+    fn knn_search(&self, query_point: &[Self::ElementType], num_closest: usize) -> Vec<(Self::IndexType, Self::DistanceType)>;
+
+    // 半径K近邻搜索
+    fn rknn_search(&self, query_point: &[Self::ElementType], num_closest: usize, radius: Self::DistanceType) -> Vec<(Self::IndexType, Self::DistanceType)>;
+
+    // 执行从节点开始的精确搜索
+    fn search_level(&self, query_point: &[Self::ElementType], node: &Node, mindist: Self::DistanceType, eps_error: f32) -> Vec<(Self::IndexType, Self::DistanceType)>;
+
+    // 计算边界框
+    fn compute_bounding_box(&self) -> Option<Vec<Interval>>;
+
+    // 节点分割, 用于实现节点的分割逻辑。它接受起始和结束索引，并返回一个 Node 对象。
+    fn divide_tree(&mut self, start: usize, end: usize) -> Node;
+
+    // 保存索引
     fn save_index(&self, path: &str) -> Result<(), std::io::Error>;
+
+    // 加载索引
     fn load_index(&mut self, path: &str) -> Result<(), std::io::Error>;
 }
 

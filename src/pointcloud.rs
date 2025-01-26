@@ -1,6 +1,7 @@
 #![allow(unconditional_recursion)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
+
 /*
 提供了几个模板类和相关函数，用于生成和管理不同类型的点云数据（三维点、四元数、方向）。这些类和方法可以用于构建和处理点云数据，适用于需要处理三维空间数据的应用场景。
 */
@@ -12,34 +13,35 @@ use std::ops::{Index, IndexMut};
 
 // 工具类
 use crate::utils::{
-    pi_const, HasResize, HasAssign, HasSize, IndexDistSorter, HasPointData, Abs
+    pi_const, HasResize, HasAssign, HasSize, 
+    IndexDistSorter, HasPointData, Abs
 };
 
 /* start 点云相关 */
 
 /// 三维点结构体
 #[derive(Clone)]
-pub struct Point<T> {
-    pub x: T,
-    pub y: T,
-    pub z: T,
+pub struct Point<ElementTypeAny> {
+    pub x: ElementTypeAny,
+    pub y: ElementTypeAny,
+    pub z: ElementTypeAny,
 }
 
 /// 点云结构体，包含三维坐标
 #[derive(Clone)]
-pub struct PointCloud<T> {
-    pub pts: Vec<Point<T>>,
+pub struct PointCloud<ElementTypeAny> {
+    pub pts: Vec<Point<ElementTypeAny>>,
 }
 
 /// PointCloud的实现
 impl<T> PointCloud<T> {
-    /// 返回点云中点的数量
-    pub fn kdtree_get_point_count(&self) -> usize {
+    /// 返回点云数据集中点的数量
+    pub fn get_point_count(&self) -> usize {
         self.pts.len()
     }
 
-    /// 返回指定点的指定维度的值
-    pub fn kdtree_get_pt(&self, idx: usize, dim: usize) -> &T {
+    /// 返回数据集中指定点的指定维度的值
+    pub fn get_point(&self, idx: usize, dim: usize) -> &T {
         match dim {
             0 => &self.pts[idx].x,
             1 => &self.pts[idx].y,
@@ -49,23 +51,18 @@ impl<T> PointCloud<T> {
     }
 
     /// 可选：计算边界框，默认返回false
-    pub fn kdtree_get_bbox<BBOX>(&self, _bb: &mut BBOX) -> bool {
+    pub fn get_bbox<BBOX>(&self, _bb: &mut BBOX) -> bool {
         false
     }
 }
 
-/// PointCloud的实现
-impl<T: Copy + PartialOrd> HasPointData for PointCloud<T> {
-    type Item = T;
+// 为PointCloud实现HasPointData特性
+impl<ElementTypeAny: Copy + PartialOrd> HasPointData for PointCloud<ElementTypeAny> {
+    type ElementTypeAny = ElementTypeAny;
     type IndexTypeAny = usize;
-    type DistanceTypeAny = T;
-
-    fn distance(&self) -> Self::DistanceTypeAny {
-        // 这里需要实现具体的距离计算逻辑
-        unimplemented!()
-    }
-
-    fn kdtree_get_pt(&self, idx: Self::IndexTypeAny, dim: usize) -> Self::Item {
+   
+    // 获取某一点某一维度
+    fn get_point_dim(&self, idx: Self::IndexTypeAny, dim: usize) -> Self::ElementTypeAny {
         match dim {
             0 => self.pts[idx].x,
             1 => self.pts[idx].y,
@@ -73,6 +70,17 @@ impl<T: Copy + PartialOrd> HasPointData for PointCloud<T> {
             _ => panic!("Invalid dimension"),
         }
     }
+
+    // 获取某一点
+    fn get_point(&self, idx: Self::IndexTypeAny) -> Vec<Self::ElementTypeAny> {
+        vec![self.pts[idx].x, self.pts[idx].y, self.pts[idx].z]
+    }
+
+    // 获取所有数据
+    fn get_point_vec(&self) -> Vec<Vec<Self::ElementTypeAny>> {
+        unimplemented!()
+    }
+
 }
 
 /// 生成随机点云
@@ -127,12 +135,12 @@ pub struct PointQuat<T> {
 /// PointCloudQuat的实现
 impl<T> PointCloudQuat<T> {
     /// 返回点云中点的数量
-    pub fn kdtree_get_point_count(&self) -> usize {
+    pub fn get_point_count(&self) -> usize {
         self.pts.len()
     }
 
     /// 返回指定点的指定维度的值
-    pub fn kdtree_get_pt(&self, idx: usize, dim: usize) -> &T {
+    pub fn get_point(&self, idx: usize, dim: usize) -> &T {
         match dim {
             0 => &self.pts[idx].w,
             1 => &self.pts[idx].x,
@@ -143,23 +151,18 @@ impl<T> PointCloudQuat<T> {
     }
 
     /// 可选：计算边界框，默认返回false
-    pub fn kdtree_get_bbox<BBOX>(&self, _bb: &mut BBOX) -> bool {
+    pub fn get_bbox<BBOX>(&self, _bb: &mut BBOX) -> bool {
         false
     }
 }
 
 /// PointCloudQuat的实现
-impl<T: Copy + PartialOrd> HasPointData for PointCloudQuat<T> {
-    type Item = T;
+impl<ElementTypeAny: Copy + PartialOrd> HasPointData for PointCloudQuat<ElementTypeAny> {
+    type ElementTypeAny = ElementTypeAny;
     type IndexTypeAny = usize;
-    type DistanceTypeAny = T;
 
-    fn distance(&self) -> Self::DistanceTypeAny {
-        // 这里需要实现具体的距离计算逻辑
-        unimplemented!()
-    }
-
-    fn kdtree_get_pt(&self, idx: Self::IndexTypeAny, dim: usize) -> Self::Item {
+    // 获取某一点某一维度
+    fn get_point_dim(&self, idx: Self::IndexTypeAny, dim: usize) -> Self::ElementTypeAny {
         match dim {
             0 => self.pts[idx].w,
             1 => self.pts[idx].x,
@@ -168,6 +171,17 @@ impl<T: Copy + PartialOrd> HasPointData for PointCloudQuat<T> {
             _ => panic!("Invalid dimension"),
         }
     }
+
+     // 获取某一点
+     fn get_point(&self, idx: Self::IndexTypeAny) -> Vec<Self::ElementTypeAny> {
+        vec![self.pts[idx].w, self.pts[idx].x, self.pts[idx].y, self.pts[idx].z]
+    }
+
+    // 获取所有数据
+    fn get_point_vec(&self) -> Vec<Vec<Self::ElementTypeAny>> {
+        unimplemented!()
+    }
+
 }
 
 /// 生成随机四元数点云
@@ -214,35 +228,41 @@ pub struct PointOrient<T> {
 /// 方向点云行为的实现
 impl<T> PointCloudOrient<T> {
     /// 返回点云中点的数量
-    pub fn kdtree_get_point_count(&self) -> usize {
+    pub fn get_point_count(&self) -> usize {
         self.pts.len()
     }
 
     /// 返回指定点的指定维度的值
-    pub fn kdtree_get_pt(&self, idx: usize, _dim: usize) -> &T {
+    pub fn get_point(&self, idx: usize, _dim: usize) -> &T {
         &self.pts[idx].theta
     }
 
     /// 可选：计算边界框，默认返回false
-    pub fn kdtree_get_bbox<BBOX>(&self, _bb: &mut BBOX) -> bool {
+    pub fn get_bbox<BBOX>(&self, _bb: &mut BBOX) -> bool {
         false
     }
 }
 
 /// 方向点云行为的实现
-impl<T: Copy + PartialOrd> HasPointData for PointCloudOrient<T> {
-    type Item = T;
+impl<ElementTypeAny: Copy + PartialOrd> HasPointData for PointCloudOrient<ElementTypeAny> {
+    type ElementTypeAny = ElementTypeAny;
     type IndexTypeAny = usize;
-    type DistanceTypeAny = T;
 
-    fn distance(&self) -> Self::DistanceTypeAny {
-        // 这里需要实现具体的距离计算逻辑
+    // 获取某一点某一维度
+    fn get_point_dim(&self, idx: Self::IndexTypeAny, _dim: usize) -> Self::ElementTypeAny {
+        self.pts[idx].theta
+    }
+
+     // 获取某一点
+     fn get_point(&self, idx: Self::IndexTypeAny) -> Vec<Self::ElementTypeAny> {
+        vec![self.pts[idx].theta]
+    }
+
+    // 获取所有数据
+    fn get_point_vec(&self) -> Vec<Vec<Self::ElementTypeAny>> {
         unimplemented!()
     }
 
-    fn kdtree_get_pt(&self, idx: Self::IndexTypeAny, _dim: usize) -> Self::Item {
-        self.pts[idx].theta
-    }
 }
 
 /// 生成随机方向点云
@@ -261,13 +281,6 @@ pub fn generate_random_point_cloud_orient<T: rand::distributions::uniform::Sampl
     }
 }
 
-/// 打印内存使用情况（仅适用于Linux系统）
-pub fn dump_mem_usage() {
-    if let Ok(contents) = std::fs::read_to_string("/proc/self/statm") {
-        println!("MEM: {}", contents);
-    }
-}
-
 #[cfg(test)]
 mod tests1 {
     use super::*;
@@ -276,21 +289,21 @@ mod tests1 {
     fn test_point_cloud() {
         let mut pc: PointCloud<f64> = PointCloud { pts: Vec::new() };
         generate_random_point_cloud(&mut pc, 100, 10.0);
-        assert_eq!(pc.kdtree_get_point_count(), 100);
+        assert_eq!(pc.get_point_count(), 100);
     }
 
     #[test]
     fn test_point_cloud_quat() {
         let mut pc: PointCloudQuat<f64> = PointCloudQuat { pts: Vec::new() };
         generate_random_point_cloud_quat(&mut pc, 100);
-        assert_eq!(pc.kdtree_get_point_count(), 100);
+        assert_eq!(pc.get_point_count(), 100);
     }
 
     #[test]
     fn test_point_cloud_orient() {
         let mut pc: PointCloudOrient<f64> = PointCloudOrient { pts: Vec::new() };
         generate_random_point_cloud_orient(&mut pc, 100);
-        assert_eq!(pc.kdtree_get_point_count(), 100);
+        assert_eq!(pc.get_point_count(), 100);
     }
 }
 

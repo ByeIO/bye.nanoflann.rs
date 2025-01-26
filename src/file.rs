@@ -1,4 +1,7 @@
 #![allow(unused_imports)]
+
+//! 保存和加载数据
+
 use std::io::{self, Read, Write};
 use rand::Rng;
 

@@ -4,8 +4,8 @@
 #![allow(unused_mut)]
 #![allow(unused_variables)]
 
-/// 内存分配模块
-/// 使用 Vec 来自动管理内存块, 避免手动分配内存
+//! 内存分配模块
+//! 使用 Vec 来自动管理内存块, 避免手动分配内存
 
 use std::rc::Rc;
 use std::cell::RefCell;

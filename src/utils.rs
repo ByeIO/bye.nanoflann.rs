@@ -2,26 +2,25 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 /*
-代码提供了一个简单的函数来监控内存使用情况。
-代码提供了一套用于容器操作和基于距离排序的工具，适用于需要处理可变或固定大小容器并进行排序的场景。
+定义各种数据静态特性以及数学特性。
 */
 
 use rand::Rng;
 use std::f64::consts::PI;
 use std::fmt::Debug;
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, Add};
 
-use crate::sets::ResultItem;
-
-/* start 检测相关 */
+use crate::sets::ResultSet;
 
 /// 定义 PI 常量
 pub fn pi_const<T>() -> T
 where
-    T: From<f64>,
+    T: From<f32>,
 {
     T::from(3.14159265358979323846)
 }
+
+/* start 静态特性 */
 
 /// 判断类型是否具有 `resize` 方法
 pub trait HasResize {
@@ -110,28 +109,41 @@ where
 /// 用于排序的结构体
 pub struct IndexDistSorter;
 
-/// 排序的实现
+/// 距离排序的实现
 impl IndexDistSorter {
     /// 比较函数，用于排序
     pub fn compare<PairType>(p1: &PairType, p2: &PairType) -> bool
     where
-        PairType: HasPointData,
+        PairType: HasDistance<IndexTypeAny = usize>,
     {
-        p1.distance() < p2.distance()
+        // 默认比较第一个元素的距离
+        p1.distance(0b0 as usize) < p2.distance(0b0 as usize)
     }
 }
 
 /// 可以通过数据和索引获得数据源当中的某点的特性
 pub trait HasPointData {
-    type Item; // 点的数据类型（如 f64）
-    type IndexTypeAny; // 索引类型（如 usize）
-    type DistanceTypeAny: PartialOrd + Clone; // 距离类型（如 f64）
-
-    /// 获取距离
-    fn distance(&self) -> Self::DistanceTypeAny;
-
+    type ElementTypeAny; // 点的数据类型（如 f64 或 vec![f64,f64,f64,f64]) <- RGB-D数据)
+    type IndexTypeAny; // 索引类型(如usize或vec![usize,usize,usize])
+    /// 获取指定索引处的点的值
+    fn get_point(&self, idx: Self::IndexTypeAny) -> Vec<Self::ElementTypeAny>;
     /// 获取指定索引处的点的指定维度的值
-    fn kdtree_get_pt(&self, idx: Self::IndexTypeAny, dim: usize) -> Self::Item;
+    fn get_point_dim(&self, idx: Self::IndexTypeAny, dim: usize) -> Self::ElementTypeAny;
+    /// 获取所有的点的值
+    fn get_point_vec(&self) -> Vec<Vec<Self::ElementTypeAny>>;
+}
+
+/// 拥有distance属性的特性
+pub trait HasDistance {
+    // 索引类型（如 usize）
+    type IndexTypeAny; 
+    // 距离类型（如 f64或vec![f64,f64,f64,f64])
+    // 各个距离L1,L2,SO2,SO3
+    type DistanceTypeAny: PartialOrd + Add; 
+    // 获取某点的距离
+    fn distance(&self, dim: Self::IndexTypeAny) -> Self::DistanceTypeAny;
+    // 获取所有距离
+    fn distance_vec(&self) -> Vec<Self::DistanceTypeAny>;
 }
 
 #[cfg(test)]
@@ -140,7 +152,7 @@ mod tests2 {
 
     #[test]
     fn test_pi_const() {
-        let pi: f64 = pi_const();
+        let pi: f32 = pi_const();
         assert!((pi - 3.14159265358979323846).abs() < 1e-10, "pi_const() returned an incorrect value");
     }
 
@@ -182,7 +194,7 @@ mod tests2 {
 
     #[test]
     fn test_has_distance_trait() {
-        let item = ResultItem::new(1, 2.5);
+        let item = ResultSet::new(1, 2.5);
         assert_eq!(item.distance(), 2.5, "HasPointData trait implementation is incorrect");
     }
 
@@ -207,9 +219,9 @@ mod tests2 {
     }
 }
 
-/* end 检测相关 */
+/* end 静态特性 */
 
-/* start 绝对值 */
+/* start 数学特性 */
 pub trait Abs {
     fn abs(&self) -> Self;
 }
@@ -223,6 +235,23 @@ impl Abs for f32 {
 impl Abs for f64 {
     fn abs(&self) -> Self {
         f64::abs(*self)
+    }
+}
+
+// 最大值
+pub trait MaxValue {
+    fn max_value() -> Self;
+}
+
+impl MaxValue for f32 {
+    fn max_value() -> Self {
+        f32::MAX
+    }
+}
+
+impl MaxValue for f64 {
+    fn max_value() -> Self {
+        f64::MAX
     }
 }
 
@@ -254,4 +283,13 @@ mod tests5 {
         assert_eq!(z.abs(), 0.0);
     }
 }
-/* end 绝对值 */
+/* end 数学特性 */
+
+/* start 调试工具 */
+/// 打印内存使用情况（仅适用于Linux系统）
+pub fn dump_mem_usage() {
+    if let Ok(contents) = std::fs::read_to_string("/proc/self/statm") {
+        println!("MEM: {}", contents);
+    }
+}
+/* end 调试工具 */
