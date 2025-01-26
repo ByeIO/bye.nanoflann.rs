@@ -2,7 +2,7 @@
 name = "bye_nanoflann_rs"
 version = "0.1.0"
 edition = "2021"
-license = "BSD"
+license-file = "LICENSE"
 authors = ["qsbye"]
 description = "A Rust library for KD-Tree, implemented based on nanoflann, primarily optimized for 2D or 3D point clouds."
 homepage = "https://docs.rs/bye_nanoflann_rs"
