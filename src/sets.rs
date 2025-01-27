@@ -18,7 +18,7 @@ use crate::utils::{
 
 /* start 简单集合 */
 
-/// 1. 超集, 数据 + 距离
+/// 1. 超集, 点 + 距离
 #[derive(Debug, Clone, PartialEq)]
 pub struct SuperSet<ElementTypeAny = f32, DistanceTypeAny = f32> {
     // N * N 维向量
@@ -31,7 +31,7 @@ pub struct SuperSet<ElementTypeAny = f32, DistanceTypeAny = f32> {
 impl<ElementTypeAny, DistanceTypeAny> SuperSet<ElementTypeAny, DistanceTypeAny>
 where
     ElementTypeAny: PartialOrd + Clone,
-    DistanceTypeAny: Sized + Copy,
+    DistanceTypeAny: Sized + Copy + PartialOrd,
 {
     /// 创建一个新的超集
     pub fn new(
@@ -42,6 +42,38 @@ where
             data_vec, distance_vec
         }
     }// end fn new
+
+    /// 添加一个点到数据
+    pub fn add_point(&mut self, index: usize, distance: DistanceTypeAny){
+        if index <= (self.distance_vec.len() - 1) {
+            // 在指定索引处插入距离，原数据后移
+            self.distance_vec.insert(index, distance); 
+            self.data_vec.insert(index, self.data_vec[0].clone());
+        }else{
+            // 否则直接插入末尾
+            self.distance_vec.push(distance);
+            self.data_vec.push(self.data_vec[0].clone());
+        }
+        
+    }
+    
+    /// 获取最差距离(最远距离)
+    pub fn worst_dist(&self) -> DistanceTypeAny{
+        let mut max = self.distance_vec[0];
+        for &distance in &self.distance_vec {
+            if distance > max {
+                max = distance;
+            }
+        }
+        max
+    }
+    
+    /// 输出排序后的距离vec(小至大)
+    pub fn into_sorted_vec(&self) -> Vec<DistanceTypeAny> {
+        let mut sorted_vec = self.distance_vec.clone();
+        sorted_vec.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_vec
+    }
 
 }
 

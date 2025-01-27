@@ -1,6 +1,6 @@
 [package]
 name = "bye_nanoflann_rs"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license-file = "LICENSE"
 authors = ["qsbye"]
@@ -8,6 +8,7 @@ description = "A Rust library for KD-Tree, implemented based on nanoflann, prima
 homepage = "https://docs.rs/bye_nanoflann_rs"
 documentation = "https://docs.rs/bye_nanoflann_rs"
 repository = "https://github.com/ByeIO/bye.nanoflann.rs"
+keywords = ["kdtree", "nearest", "neighbor", "search", "nanoflann"]
 readme = "README.md"
 
 [profile.release]
@@ -18,4 +19,8 @@ name = "bye_nanoflann_rs"
 path = "src/lib.rs" 
 
 [dependencies]
-rand = "0.8.5"
+# rand = 0.8.5 ,版本不能升级, 否则API不同
+rand = "0.8.5" 
+
+# 计算有些bug, 先用第三方库吧... (´｡• ᵕ •｡`)♡
+kdtree-rust = { path = "./static/kdtree-rust" }

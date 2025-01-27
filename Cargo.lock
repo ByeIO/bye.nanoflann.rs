@@ -4,8 +4,9 @@ version = 4
 
 [[package]]
 name = "bye_nanoflann_rs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
+ "kdtree-rust",
  "rand",
 ]
 
@@ -31,6 +32,10 @@ dependencies = [
  "libc",
  "wasi",
 ]
+
+[[package]]
+name = "kdtree-rust"
+version = "0.1.2"
 
 [[package]]
 name = "libc"

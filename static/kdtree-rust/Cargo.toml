@@ -1,0 +1,16 @@
+[package]
+name = "kdtree-rust"
+version = "0.1.2"
+authors = ["jinpu <nanasi18@gmail.com>"]
+edition = "2021"
+description = "Rust implementation of KDTree"
+keywords = ["tree", "nearest", "neighbor", "search", "geo"]
+readme = "README.md"
+repository = "https://github.com/j6k1/kdtree-rust"
+documentation = "https://docs.rs/kdtree-rust"
+license = "MIT"
+[dependencies]
+[dev-dependencies]
+rand = "0.8.5"
+[profile.test]
+opt-level = 3

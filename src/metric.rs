@@ -206,6 +206,15 @@ where
     }
 }
 
+// 简单计算两个点之间的欧几里得距离
+pub fn l2_distance(p1: &Vec<f32>, p2: &Vec<f32>) -> f32 {
+    p1.iter()
+        .zip(p2.iter())
+        .map(|(&a, &b)| (a - b).powi(2))
+        .sum::<f32>()
+        .sqrt()
+}
+
 /// 简单的欧几里得距离适配器（L2距离）
 /// 适用于低维数据集，如2D或3D点云。
 pub struct L2SimpleAdaptor<ElementTypeAny, DataSourceAny, DistanceTypeAny, IndexTypeAny> {

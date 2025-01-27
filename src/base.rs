@@ -17,27 +17,30 @@ use rand::distributions::{Distribution, Uniform};
 use crate::file::{save_value, load_value};
 use crate::memalloc::PooledAllocator;
 use crate::params::{KDTreeSingleIndexAdaptorParams, SearchParameters};
-use crate::sets::{KNNResultSet, RKNNResultSet, RadiusResultSet, ResultSet};
+use crate::sets::{KNNResultSet, RKNNResultSet, RadiusResultSet, ResultSet, SuperSet};
 
 /* start 树叶 */
 
 /// 节点类型
+#[derive(Clone)]
 pub enum NodeType {
     Leaf { left: usize, right: usize },
-    NonLeaf { divfeat: i32, divlow: f64, divhigh: f64 },
+    NonLeaf { divfeat: i32, divlow: f32, divhigh: f32 },
 }
 
 /// 树节点
+#[derive(Clone)]
 pub struct Node {
-    node_type: NodeType,
-    child1: Option<Box<Node>>,
-    child2: Option<Box<Node>>,
+    pub node_type: NodeType,
+    pub child1: Option<Box<Node>>,
+    pub child2: Option<Box<Node>>,
 }
 
 /// 区间
+#[derive(Clone)]
 pub struct Interval {
-    low: f64,
-    high: f64,
+    pub low: f32,
+    pub high: f32,
 }
 /* end 树叶 */
 
@@ -97,14 +100,23 @@ impl<const DIM: usize, T> ArrayOrVector<DIM, T> {
 
 // TODO: 实现多线程
 pub trait KDTreeBase {
-    type ElementType;
-    type DistanceType;
-    type IndexType;
-    // 初始化KD树
-    fn init(&mut self, dimensionality: usize, leaf_max_size: usize);
+    // 默认为f32
+    type ElementTypeAny;
+    // 默认为f32
+    type DistanceTypeAny;
+    // 默认为usize
+    type IndexTypeAny;
+    // 默认为SuperSet
+    type DataSourceAny; 
 
-    // 建立索引
-    fn build_index(&mut self);
+    // 初始化KD树, 用于初始化k-d树。它接受数据集、维度以及最大叶子数作为参数。
+    fn init(&mut self);
+
+    // 建立索引, 用于构建k-d树。它通过递归地划分数据集来构建树结构, 数据集为引用, init方法和update方法会自动调用。
+    fn _build_index(&mut self);
+
+    // 节点分割, 用于实现节点的分割逻辑。它接受起始和结束索引，并返回一个 Node 对象。
+    fn divide_tree(&mut self, start: usize, end: usize) -> Node;
 
     // 更新索引, 确保辅助索引列表的大小与当前数据集一致，并在大小发生变化时重新生成。
     fn update_index(&mut self);
@@ -113,31 +125,58 @@ pub trait KDTreeBase {
     fn get_point_count(&self) -> usize;
 
     // 最近邻搜索
-    fn find_neighbors(&self, query_point: &[Self::ElementType], num_closest: usize) -> Vec<(Self::IndexType, Self::DistanceType)>;
+    fn find_neighbors(&self, 
+        query_point: &Vec<Self::ElementTypeAny>, 
+        num_closest: usize, 
+        result_set: &mut SuperSet<Self::ElementTypeAny, Self::DistanceTypeAny>)  -> bool;
 
     // 半径搜索
-    fn radius_search(&self, query_point: &[Self::ElementType], radius: Self::DistanceType) -> Vec<(Self::IndexType, Self::DistanceType)>;
+    fn radius_search(&self, 
+        query_point: &Vec<Self::ElementTypeAny>, 
+        radius: Self::DistanceTypeAny, 
+        result_set: &mut SuperSet<Self::ElementTypeAny, Self::DistanceTypeAny>) 
+        -> usize;
 
     // K近邻搜索
-    fn knn_search(&self, query_point: &[Self::ElementType], num_closest: usize) -> Vec<(Self::IndexType, Self::DistanceType)>;
+    fn knn_search(&self, 
+        query_point: &Vec<Self::ElementTypeAny>, 
+        num_closest: usize, 
+        result_set: &mut SuperSet<Self::ElementTypeAny, Self::DistanceTypeAny>
+    ) -> usize;
 
     // 半径K近邻搜索
-    fn rknn_search(&self, query_point: &[Self::ElementType], num_closest: usize, radius: Self::DistanceType) -> Vec<(Self::IndexType, Self::DistanceType)>;
+    fn rknn_search(
+        &self, 
+        query_point: &Vec<Self::ElementTypeAny>, 
+        num_closest: usize, 
+        radius: Self::DistanceTypeAny, 
+        result_set: &mut SuperSet<Self::ElementTypeAny, Self::DistanceTypeAny>
+    ) -> usize;
 
     // 执行从节点开始的精确搜索
-    fn search_level(&self, query_point: &[Self::ElementType], node: &Node, mindist: Self::DistanceType, eps_error: f32) -> Vec<(Self::IndexType, Self::DistanceType)>;
+    fn search_level(
+        &self, 
+        query_point: &Vec<Self::ElementTypeAny>, 
+        node: &Node, 
+        mindist: Self::DistanceTypeAny, 
+        eps_error: f32, 
+        result_set: &mut SuperSet<Self::ElementTypeAny, Self::DistanceTypeAny>) 
+        -> bool;
 
     // 计算边界框
     fn compute_bounding_box(&self) -> Option<Vec<Interval>>;
-
-    // 节点分割, 用于实现节点的分割逻辑。它接受起始和结束索引，并返回一个 Node 对象。
-    fn divide_tree(&mut self, start: usize, end: usize) -> Node;
 
     // 保存索引
     fn save_index(&self, path: &str) -> Result<(), std::io::Error>;
 
     // 加载索引
     fn load_index(&mut self, path: &str) -> Result<(), std::io::Error>;
+
+    // 保存整棵树
+    fn save_tree(&self, path: &str) -> Result<(), std::io::Error>;
+
+    // 加载整棵树
+    fn load_tree(&mut self, path: &str) -> Result<(), std::io::Error>;
 }
 
 /* end KDTreeBase公共特性 */
